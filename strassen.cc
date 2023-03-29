@@ -2,7 +2,10 @@
 #include <fstream>
 #include <vector>
 #include <cmath>
+#include <chrono>
+#include <stdexcept>
 
+using std::vector;
 using namespace std;
 
 vector< vector<vector<int> > > read_matrices_from_file(const char* file_path, int dimension) {
@@ -68,10 +71,40 @@ vector<vector<int> > trad_multiplication(const vector<vector<int> >& matrix_1, c
     return result;
 }
 
+vector<vector<int>> optimized_multiplication(const vector<vector<int>>& matrix_1, const vector<vector<int>>& matrix_2) {
+    int n1 = matrix_1.size();
+    int m1 = matrix_1[0].size();
+    int n2 = matrix_2.size();
+    int m2 = matrix_2[0].size();
+
+    if (m1 != n2) {
+        throw std::invalid_argument("The dimensions of the input matrices are not compatible for multiplication.");
+    }
+
+    vector<vector<int>> result(n1, vector<int>(m2, 0));
+
+    const int blockSize = 32; // Adjust this value based on your system's cache size
+
+    for (int ii = 0; ii < n1; ii += blockSize) {
+        for (int jj = 0; jj < m2; jj += blockSize) {
+            for (int kk = 0; kk < m1; kk += blockSize) {
+                for (int i = ii; i < std::min(ii + blockSize, n1); i++) {
+                    for (int k = kk; k < std::min(kk + blockSize, m1); k++) {
+                        for (int j = jj; j < std::min(jj + blockSize, m2); j++) {
+                            result[i][j] += matrix_1[i][k] * matrix_2[k][j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
+}
 vector<vector<int> > strassens_helper(const vector<vector<int> >& A, const vector<vector<int> >& B, int n0) {
     int n = A.size();
 
-    if (n == n0) {
+    if (n <= n0) {
         return trad_multiplication(A, B);
     }
 
@@ -195,13 +228,48 @@ int flag = atoi(argv[1]);
 int dimension = atoi(argv[2]);
 const char* input_file = argv[3];
 
-auto matrix_a = read_matrices_from_file(input_file, dimension)[0];
-auto matrix_b = read_matrices_from_file(input_file, dimension)[1];
-auto result = strassens(matrix_a, matrix_b, 1);
+//auto matrix_a = read_matrices_from_file(input_file, dimension)[0];
+//auto matrix_b = read_matrices_from_file(input_file, dimension)[1];
+dimension = 63;
+std::vector<int> values = {-1,0, 1};
 
-for (int i = 0; i < dimension; i++) {
-    cout << result[i][i] << endl;
+    // Seed the random number generator
+    std::srand(static_cast<unsigned>(std::time(0)));
+    
+    //Create a 2D vector of size (rows, cols) with random elements from the 'values' vector
+    std::vector<std::vector<int>> matrix_a(dimension, std::vector<int>(dimension));
+    std::vector<std::vector<int>> matrix_b(dimension, std::vector<int>(dimension));
+
+    for (int i = 0; i < dimension; ++i) {
+        for (int j = 0; j < dimension; ++j) {
+            int random_index = std::rand() % values.size();
+            matrix_a[i][j] = values[random_index];
+        }
+    }
+    for (int i = 0; i < dimension; ++i) {
+        for (int j = 0; j < dimension; ++j) {
+            int random_index = std::rand() % values.size();
+            matrix_b[i][j] = values[random_index];
+        }
+    }
+
+// for (int i = 1; i < dimension; ++i){
+// auto start1 = std::chrono::high_resolution_clock::now();
+// auto results1 = strassens(matrix_a, matrix_b, i);
+// auto end1 = std::chrono::high_resolution_clock::now();
+// auto duration1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - start1).count();
+// std::cout << "Elapsed time: " << duration1 << " nanoseconds" << std::endl;
+// auto start2 = std::chrono::high_resolution_clock::now();
+// auto results2 = trad_multiplication(matrix_a, matrix_b);
+// auto end2 = std::chrono::high_resolution_clock::now();
+// auto duration2 = std::chrono::duration_cast<std::chrono::nanoseconds>(end2 - start2).count();
+// std::cout << "Elapsed time trad: " << duration2 << " nanoseconds" << std::endl;
+//}
+auto results = strassens(matrix_a, matrix_b, 1);
+for (int i = 0; i < dimension; i++){
+    std::cout << (results[i][i]) << std::endl;
 }
+
 
 return 0;
 }
